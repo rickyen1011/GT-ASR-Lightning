@@ -1,0 +1,124 @@
+{
+    "exp_dir": "gsc-25kws",
+    "trainer":{
+        "max_epochs": 20,
+        "deterministic": false,
+        "val_check_interval": 0.5,
+        "accumulate_grad_batches": 1
+    },
+    "lightning_module": {
+        "module": "lightning_modules.regular_module",
+        "main": "BaseASRModule"
+    },
+    "ASR_model": {
+        "module": "models.ssl",
+        "main": "SSLASR",
+        "args": {
+            "base_args": {
+                "num_class": 21
+            },
+            "SSL_backbone_args": {
+                "pretrained_model": "wav2vec2_base",
+                "d_encoder": 768
+            }
+        }
+    },
+    "decoder": {
+        "greedy_decoder":{
+            "module": "models.decoder",
+            "main": "GreedyDecoder",
+            "args": {}
+        }        
+    },
+    "optimizer": {
+        "lr": 3e-5,
+        "beta1": 0.9,
+        "beta2": 0.98,
+        "weight_decay": 0.0
+    },
+    "lr_scheduler":{
+        "threshold": 1e-2,
+        "factor": 0.5,
+        "patience": 2,
+        "min_lr": 1e-6
+    },
+    "train_dataset": {
+        "module": "datasets.ctc.waveform_dataset",
+        "main": "Dataset", 
+        "args": {
+            "root_dir": "/mnt/disk2/rickyen/Datasets/gsc",
+            "data_dir": "./data/gsc-MP-25kws",
+            "json_file": "train.json",
+            "lexicon_file": "lexicon_MP.txt",
+            "split": "train"
+        }
+    },
+    "validation_dataset": {
+        "module": "datasets.ctc.waveform_dataset",
+        "main": "Dataset",
+        "args": {
+            "root_dir": "/mnt/disk2/rickyen/Datasets/gsc",
+            "data_dir": "./data/gsc-MP-25kws",
+            "json_file": "val.json",
+            "lexicon_file": "lexicon_MP.txt",
+            "split": "val"
+        },
+        "beam_search_decoder": {
+            "token_file": "MP.txt",
+            "lm_file": "id_lm.bin",
+            "lm_weight": 3.23,
+            "word_score": -0.26
+        }
+    },
+    "train_dataloader": {
+        "batch_size": 64,
+        "num_workers": 16,
+        "shuffle": true,
+        "pin_memory": true,
+        "collate_fn": {
+            "module": "datasets.ctc.waveform_dataset",
+            "main": "Collate",
+            "args": {
+                "data_dir": "./data/gsc-MP-25kws",
+                "token_file": "MP.json"
+            }
+        }
+    },
+    "val_dataloader": {
+        "batch_size": 1,
+        "num_workers": 4,
+        "collate_fn": {
+            "module": "datasets.ctc.waveform_dataset",
+            "main": "Collate",
+            "args": {
+                "data_dir": "./data/gsc-MP-25kws",
+                "token_file": "MP.json"
+            }
+        }
+    },
+    "test_dataset": {
+        "module": "datasets.ctc.waveform_dataset",
+        "main": "Dataset",
+        "args": {
+            "root_dir": "/mnt/disk2/rickyen/Datasets/gsc",
+            "data_dir": "./data/gsc-MP-25kws",
+            "json_file": "test.json",
+            "lexicon_file": "lexicon_MP.txt"
+        },
+        "lm_file": "id_lm.bin",
+        "lm_weight": 3.23,
+        "word_score": -0.26
+    },
+    "test_dataloader": {
+        "batch_size": 1,
+        "num_workers": 4,
+        "collate_fn": {
+            "module": "datasets.waveform_dataset",
+            "main": "Collate",
+            "args": {
+                "data_dir": "./data/gsc-MP-25kws",
+                "token_file": "MP.json"
+            }
+        }
+    }
+}
