@@ -6,8 +6,7 @@ from tqdm import tqdm
 import torch
 import numpy as np
 
-from util.utils import initialize_config, load_config
-from util.metrics import mean_std
+from utils.utils import initialize_config, load_config
 
 
 def parse_args():
@@ -40,7 +39,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         default="inference",
-        choices=["inference", "evaluate_phase", "griffin_lim"],
+        choices=["inference"],
     )
 
     return parser.parse_args()
@@ -53,7 +52,8 @@ def main(args):
     Args:
         args (argparse.Namespace): Command line arguments.
     """
-    model_config = load_config(args.config)["model_config"]
+    config = load_config(args.config)['config']
+    print (config)
     testset_config = load_config(args.testset_config)
 
     testset_name = args.testset_config.stem
@@ -63,20 +63,19 @@ def main(args):
     test_dataset = initialize_config(testset_config["test_dataset"])
 
     lightning_module = initialize_config(
-        model_config["lightning_module"], pass_args=False
+        config["lightning_module"], pass_args=False
     ).load_from_checkpoint(
         checkpoint_path=args.checkpoint_path,
-        config=model_config,
-        sample_rate=test_dataset.sample_rate,
+        config=config
     )
     lightning_module = lightning_module.to(device="cuda").eval()
-    test_dataloader = lightning_module.get_test_dataloader(test_dataset)
+    test_dataloader = lightning_module.get_test_dataloader(test_dataset, testset_config)
 
-    score_records = run_inference(lightning_module, test_dataloader, args.mode)
+    score_records = run_inference(lightning_module, test_dataloader, args.mode, testset_config)
     save_results(score_records, output_dir, args.mode)
 
 
-def run_inference(lightning_module, dataloader, mode):
+def run_inference(lightning_module, dataloader, mode, config):
     """
     Run inference or evaluation on a dataset using a given model.
 
@@ -86,23 +85,22 @@ def run_inference(lightning_module, dataloader, mode):
         mode (str): 
 
     Returns:
-        defaultdict[list]: Dictionary of score records.
+        Dict: Dictionary of score records.
     """
-    score_records = defaultdict(list)
-    with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Inference"):
-            if mode == "evaluate_phase":
-                log_statistics, _ = lightning_module.evaluate_phase(batch)
-            elif mode == "inference":
-                log_statistics, _ = lightning_module.inference(batch)
-            elif mode == "griffin_lim":
-                log_statistics, _ = lightning_module.griffin_lim(batch)
-            else:
-                raise NotImplementedError
+    score_records = dict()
+    i = 0
+    if mode == "inference":
+        test_ter_outputs, test_acc_outputs = lightning_module.inference(dataloader, config)
+    else:
+        raise NotImplementedError
 
-            for key, value in log_statistics.items():
-                score_records[key].append(value)
-    return score_records
+    all_ter_preds, all_ter_labels = \
+        [output[0] for output in test_ter_outputs], [output[1] for output in test_ter_outputs]
+    all_acc_preds, all_acc_labels = \
+        [output[0] for output in test_acc_outputs], [output[1] for output in test_acc_outputs]
+    ter = lightning_module.ter(all_ter_preds, all_ter_labels)
+    acc = lightning_module.compute_acc(all_acc_preds, all_acc_labels)
+    return {"Token Error Rate (TER)": ter, "Accuracy": acc}
 
 
 def save_results(score_records, output_dir, mode):
@@ -116,19 +114,14 @@ def save_results(score_records, output_dir, mode):
     """
     log_file_path = output_dir / "log.txt"
     with log_file_path.open("a") as outfile:
-        for key, value_list in score_records.items():
-            mean, std = mean_std(np.asarray(value_list))
-            print(f"{key}: {mean:.4f} ± {std:.4f}")
-            print(f"{key}: {mean:.4f} ± {std:.4f}", file=outfile)
+        for key, value in score_records.items():
+            print(f"{key}: {value:.4f}")
+            print(f"{key}: {value:.4f}", file=outfile)
 
-    df = pd.DataFrame(score_records)
-    if mode == "evaluate_phase":
-        csv_output_path = output_dir / "phase_evaluation_scores.csv"
-    elif mode == "inference":
+    df = pd.DataFrame.from_dict(score_records)
+    if mode == "inference":
         csv_output_path = output_dir / "inference_scores.csv"
-    elif mode == "griffin_lim":
-        csv_output_path = output_dir / "griffin_lim_scores.csv"
-    df.to_csv(csv_output_path, index=False)
+    df.to_csv(csv_output_path)
 
 if __name__ == "__main__":
     args = parse_args()

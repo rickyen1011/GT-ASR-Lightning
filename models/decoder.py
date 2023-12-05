@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 
@@ -15,15 +17,30 @@ class GreedyDecoder(nn.Module):
         return indices.tolist()
 
 def get_beam_decoder(
-    lexicon_path, 
-    token_path, 
-    lm_path, 
+    split,
+    config,
     nbest=5, 
     beam_size=10, 
     lm_weight=3.23, 
     word_score=-0.26,
     blank_token='<blank>'
 ):
+
+    lexicon_path = os.path.join(
+        config[f"{split}_dataset"]["args"]["data_dir"], 
+        config[f"{split}_dataset"]["args"]["lexicon_file"]
+    )
+
+    token_path = os.path.join(
+        config[f"{split}_dataset"]["args"]["data_dir"], 
+        config[f"{split}_dataset"]["beam_search_decoder"]["token_file"]
+    )
+        
+    lm_path = os.path.join(
+        config[f"{split}_dataset"]["args"]["data_dir"], 
+        config[f"{split}_dataset"]["beam_search_decoder"]["lm_file"]
+    )
+
     beam_search_decoder = ctc_decoder(
         lexicon=lexicon_path,
         tokens=token_path,

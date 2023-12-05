@@ -34,7 +34,7 @@ class Dataset(Dataset):
                 if self.split:
                     path = f'{self.root_dir}/{self.split}/{word}/{filename}'
                 else:
-                    path = f'{self.root_dir}/{word}/{filename}'
+                    path = f'{self.root_dir}/{filename}'
                 self.metadata.append((path, word, seq))
 
     def __len__(self):
@@ -43,6 +43,8 @@ class Dataset(Dataset):
     def __getitem__(self, idx):
         wav_path, word, transcript = self.metadata[idx]
         waveform, sample_rate = torchaudio.load(wav_path)
+        if sample_rate != 16000:
+            waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
 
         return waveform, word, transcript
 

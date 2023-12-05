@@ -3,7 +3,7 @@ import argparse
 import json5
 import torch
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from utils.utils import initialize_config, load_config
 
 CKPT_DIR = "checkpoints"
@@ -56,6 +56,7 @@ def setup_experiment_dirs(config, config_path, checkpoint_path):
     exp_dir = (
         pathlib.Path("Experiments")
         / config["exp_dir"]
+        / config["unit"]
         / method_name
         / model_name
     )
@@ -95,7 +96,12 @@ def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val):
         verbose=True,
         save_last=True,
     )
-    callbacks = [val_acc_checkpoint, val_ter_checkpoint]
+    early_stop = EarlyStopping(
+        monitor=trainer_config["early_stop"]["monitor"],
+        mode=trainer_config["early_stop"]["mode"],
+        patience=trainer_config["early_stop"]["patience"]
+    )
+    callbacks = [val_acc_checkpoint, val_ter_checkpoint, early_stop]
     return Trainer(
         default_root_dir=exp_dir,
         strategy="ddp",

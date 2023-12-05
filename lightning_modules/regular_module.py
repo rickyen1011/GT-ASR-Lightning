@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 import torch
 import librosa
 import librosa.display
@@ -79,30 +80,16 @@ class BaseASRModule(LightningModule):
         loss = self._compute_loss(waveforms, labels, input_lengths, label_lengths, "val")
         outputs = self.ASR_model.inference(waveforms)
 
-        val_lexicon_path = os.path.join(
-            self.config["validation_dataset"]["args"]["data_dir"], 
-            self.config["validation_dataset"]["args"]["lexicon_file"]
-        )
-
-        val_token_path = os.path.join(
-            self.config["validation_dataset"]["args"]["data_dir"], 
-            self.config["validation_dataset"]["beam_search_decoder"]["token_file"]
-        )
-        
-        val_lm_path = os.path.join(
-            self.config["validation_dataset"]["args"]["data_dir"], 
-            self.config["validation_dataset"]["beam_search_decoder"]["lm_file"]
-        )
-
         beam_search_decoder = get_beam_decoder(
-            lexicon_path=val_lexicon_path,
-            token_path=val_token_path,
-            lm_path=val_lm_path,
+            split='validation',
+            config=self.config
         )
-        pred_seq, pred_word = self._predict(outputs, beam_search_decoder)
+        pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
+        # print (pred_words)
 
-        self.val_ter_outputs.append([pred_seq, references[0]])
-        self.val_acc_outputs.append([pred_word, references_word[0]])
+        for i in range(len(pred_words)):
+            self.val_ter_outputs.append([pred_seqs[i], references[i]])
+            self.val_acc_outputs.append([pred_words[i], references_word[i]])
         return loss
 
     def on_validation_epoch_end(self):
@@ -117,59 +104,51 @@ class BaseASRModule(LightningModule):
 
     def _predict(self, outputs, beam_search_decoder):
         inds = self.greedy_decoder(outputs.detach())
-        pred_seq = self.text_transform.int_to_text(inds[0])
+        pred_seqs = [self.text_transform.int_to_text(ind) for ind in inds]
         # if pred_seq in word_clause:
         #     pred_word = word_clause[pred_seq]
                 
         # else:
         beam_search_result = beam_search_decoder(outputs.detach().cpu())
-        pred_word = " ".join(beam_search_result[0][0].words).strip()
-        j = 1
-        while pred_word == '' and j < len(beam_search_result[0]):
-            pred_word = " ".join(beam_search_result[0][j].words).strip()
-            j += 1
+        pred_words = [" ".join(hypo[0].words).strip() for hypo in beam_search_result]
+        # j = 1
+        # while pred_word == '' and j < len(beam_search_result[0]):
+        #     pred_word = " ".join(beam_search_result[0][j].words).strip()
+        #     j += 1
 
-        return pred_seq, pred_word
+        return pred_seqs, pred_words
 
-    def inference(self, batch):
+    def inference(self, dataloader, config):
         """
         Evaluate model on test dataest.
 
         Args:
             dataloader: test dataloader
         """
-        eval_lexicon_path = os.path.join(
-            self.config["test_dataset"]["args"]["data_dir"], 
-            self.config["test_dataset"]["args"]["lexicon_file"]
-        )
-
-        eval_token_path = os.path.join(
-            self.config["test_dataset"]["args"]["data_dir"], 
-            self.config["test_dataloader"]["collate_fn"]["args"]["token_file"]
-        )
-        
-        eval_lm_path = os.path.join(
-            self.config["test_dataset"]["args"]["data_dir"], 
-            self.config["test_dataset"]["lm_file"]
-        )
-
+        test_ter_outputs, test_acc_outputs = [], []
         beam_search_decoder = get_beam_decoder(
-            lexicon_path=eval_lexicon_path,
-            token_path=eval_token_path,
-            lm_path=eval_lm_path,
+            split='test',
+            config=config
         )
 
-        waveforms, labels, input_lengths, label_lengths, references, references_word = batch
-        waveforms = waveforms.to(device=self.device)
-        outputs = self.ASR_model.inference(waveforms)
+        j = 0
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Inference"):
+                waveforms, labels, input_lengths, label_lengths, references, references_word = batch
+                waveforms = waveforms.to(device=self.device)
+                outputs = self.ASR_model.inference(waveforms)
         
-        pred_seq, pred_word = self._predict(outputs, beam_search_decoder)
+                pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
+        
+                for i in range(len(pred_words)):
+                    test_ter_outputs.append([pred_seqs[i], references[i]])
+                    test_acc_outputs.append([pred_words[i], references_word[i]])
+                
+                j += 1
 
-        log_statistics = {
-            "Accuracy": acc,
-        }
-        return log_statistics
+        return test_ter_outputs, test_acc_outputs
     
+
     def compute_acc(self, preds, labels):
         return sum(np.array(preds) == np.array(labels)) / len(preds)
 
@@ -222,5 +201,13 @@ class BaseASRModule(LightningModule):
             collate_fn=collate_fn.collate_fn,
         )
 
-    def get_test_dataloader(self, testset):
-        return DataLoader(dataset=testset, num_workers=4, batch_size=1)
+    def get_test_dataloader(self, testset, test_config):
+        collate_fn = initialize_config(
+            test_config["test_dataloader"]["collate_fn"],
+        )
+        return DataLoader(
+            dataset=testset,
+            batch_size=test_config["test_dataloader"]["batch_size"],
+            num_workers=test_config["test_dataloader"]["num_workers"],
+            collate_fn=collate_fn.collate_fn,
+        )

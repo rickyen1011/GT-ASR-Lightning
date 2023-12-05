@@ -1,5 +1,5 @@
 #!/bin/bash
-export CUDA_VISIBLE_DEVICES=1,3
+export CUDA_VISIBLE_DEVICES=0,2
 config="conf/ctc/ssl/wav2vec2.json";
 
 python train.py --config ${config} --gpu 2
