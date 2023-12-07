@@ -42,7 +42,7 @@ def parse_args():
     )
     parser.add_argument(
         "--gradient-clip-val",
-        default=1.0,
+        default=None,
         type=float,
         help="Gradient clipping threshold. (Default: 1.0)",
     )
@@ -104,7 +104,7 @@ def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val):
     callbacks = [val_acc_checkpoint, val_ter_checkpoint, early_stop]
     return Trainer(
         default_root_dir=exp_dir,
-        strategy="ddp",
+        strategy="ddp_find_unused_parameters_true",
         accelerator="gpu",
         devices=gpus,
         callbacks=callbacks,

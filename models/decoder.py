@@ -18,7 +18,8 @@ class GreedyDecoder(nn.Module):
 
 def get_beam_decoder(
     split,
-    config,
+    test_config,
+    model_config,
     nbest=5, 
     beam_size=10, 
     lm_weight=3.23, 
@@ -27,18 +28,18 @@ def get_beam_decoder(
 ):
 
     lexicon_path = os.path.join(
-        config[f"{split}_dataset"]["args"]["data_dir"], 
-        config[f"{split}_dataset"]["args"]["lexicon_file"]
+        test_config[f"{split}_dataset"]["args"]["data_dir"], 
+        test_config[f"{split}_dataset"]["args"]["lexicon_file"]
     )
 
     token_path = os.path.join(
-        config[f"{split}_dataset"]["args"]["data_dir"], 
-        config[f"{split}_dataset"]["beam_search_decoder"]["token_file"]
+        model_config[f"validation_dataset"]["args"]["data_dir"], 
+        model_config[f"validation_dataset"]["beam_search_decoder"]["token_file"]
     )
         
     lm_path = os.path.join(
-        config[f"{split}_dataset"]["args"]["data_dir"], 
-        config[f"{split}_dataset"]["beam_search_decoder"]["lm_file"]
+        test_config[f"{split}_dataset"]["args"]["data_dir"], 
+        test_config[f"{split}_dataset"]["beam_search_decoder"]["lm_file"]
     )
 
     beam_search_decoder = ctc_decoder(

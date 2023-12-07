@@ -1,16 +1,16 @@
 {
     "test_dataset": {
-        "module": "datasets.ctc.waveform_dataset",
+        "module": "datasets.ctc.waveform_dat_dataset",
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
             "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
             "json_file": "test.json",
-            "lexicon_file": "lexicon_chr.txt",
+            "lexicon_file": "lexicon_MP.txt",
             "split": null
         },
         "beam_search_decoder": {
-            "token_file": "char.txt",
+            "token_file": "MP.txt",
             "lm_file": "id_lm.bin",
             "lm_weight": 3.23,
             "word_score": -0.26
@@ -18,13 +18,14 @@
     },
     "test_dataloader": {
         "batch_size": 1,
-        "num_workers": 4,
+        "num_workers": 1,
         "collate_fn": {
-            "module": "datasets.ctc.waveform_dataset",
+            "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
                 "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
-                "token_file": "char.json"
+                "token_file": "MP.json",
+                "langs": ["en", "fr", "it"]
             }
         }
     }

@@ -1,4 +1,4 @@
-import os, sys
+import os
 from typing import Optional, Dict, Tuple, Any
 
 import torch
@@ -7,9 +7,9 @@ import torch.nn.functional as F
 import torchaudio
 
 
-class SSLASR(nn.Module):
+class SSLDATASR(nn.Module):
     def __init__(self, base_args, SSL_backbone_args):
-        super(SSLASR, self).__init__()
+        super(SSLDATASR, self).__init__()
         for key, value in base_args.items():
             setattr(self, key, value)
         for key, value in SSL_backbone_args.items():
@@ -37,7 +37,7 @@ class SSLASR(nn.Module):
         rep, _ = self.encoder.extract_features(x)
         outputs_phn = self.decoder_phn(rep[-1])
         
-        return outputs_phn
+        return outputs_phn, rep[-1]
     
     def forward(self, x, target, input_lengths, label_lengths) -> Tuple[torch.Tensor, Dict[str, float]]:
         """
@@ -50,10 +50,10 @@ class SSLASR(nn.Module):
         Returns:
             Tuple[torch.Tensor, Dict[str, float]]: The loss and log statistics
         """
-        outputs = self._forward(x)
-        return self._compute_loss(outputs, target, input_lengths, label_lengths)
+        outputs, rep = self._forward(x)
+        return self._compute_loss(outputs, target, input_lengths, label_lengths), rep
 
     def inference(self, x):
-        outputs = self._forward(x)
+        outputs, rep = self._forward(x)
 
-        return outputs
+        return outputs, rep

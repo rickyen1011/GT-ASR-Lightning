@@ -5,7 +5,8 @@ from collections import defaultdict
 from tqdm import tqdm
 import torch
 import numpy as np
-
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 from utils.utils import initialize_config, load_config
 
 
@@ -39,7 +40,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         default="inference",
-        choices=["inference"],
+        choices=["inference", "inference_dat"],
     )
 
     return parser.parse_args()
@@ -91,16 +92,22 @@ def run_inference(lightning_module, dataloader, mode, config):
     i = 0
     if mode == "inference":
         test_ter_outputs, test_acc_outputs = lightning_module.inference(dataloader, config)
+        all_ter_preds, all_ter_labels = \
+            [output[0] for output in test_ter_outputs], [output[1] for output in test_ter_outputs]
+        all_acc_preds, all_acc_labels = \
+            [output[0] for output in test_acc_outputs], [output[1] for output in test_acc_outputs]
+        ter = lightning_module.ter(all_ter_preds, all_ter_labels)
+        acc = lightning_module.compute_acc(all_acc_preds, all_acc_labels)
+        return {"Token Error Rate (TER)": ter, "Accuracy": acc}
+    elif mode == 'inference_dat':
+        test_dacc_outputs = lightning_module.inference_dat(dataloader)
+        all_dacc_preds, all_dacc_labels = \
+            [output[0] for output in test_dacc_outputs], [output[1] for output in test_adcc_outputs]
+        dacc = lightning_module.compute_acc(all_dacc_preds, all_dacc_labels)
+        return {"Domain Classification Accuracy": dacc}
     else:
         raise NotImplementedError
 
-    all_ter_preds, all_ter_labels = \
-        [output[0] for output in test_ter_outputs], [output[1] for output in test_ter_outputs]
-    all_acc_preds, all_acc_labels = \
-        [output[0] for output in test_acc_outputs], [output[1] for output in test_acc_outputs]
-    ter = lightning_module.ter(all_ter_preds, all_ter_labels)
-    acc = lightning_module.compute_acc(all_acc_preds, all_acc_labels)
-    return {"Token Error Rate (TER)": ter, "Accuracy": acc}
 
 
 def save_results(score_records, output_dir, mode):
@@ -118,10 +125,12 @@ def save_results(score_records, output_dir, mode):
             print(f"{key}: {value:.4f}")
             print(f"{key}: {value:.4f}", file=outfile)
 
-    df = pd.DataFrame.from_dict(score_records)
     if mode == "inference":
-        csv_output_path = output_dir / "inference_scores.csv"
-    df.to_csv(csv_output_path)
+        json_output_path = output_dir / "inference_scores.json"
+    if mode == "inference_dat":
+        json_output_path = output_dir / "dat_scores.json"
+    with open(json_output_path, 'w') as f:
+        json.dump(score_records, f, indent=4)
 
 if __name__ == "__main__":
     args = parse_args()

@@ -1,4 +1,4 @@
-import os
+import os, sys
 from tqdm import tqdm
 import torch
 import librosa
@@ -82,7 +82,8 @@ class BaseASRModule(LightningModule):
 
         beam_search_decoder = get_beam_decoder(
             split='validation',
-            config=self.config
+            model_config=self.config,
+            test_config=self.config
         )
         pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
         # print (pred_words)
@@ -118,7 +119,7 @@ class BaseASRModule(LightningModule):
 
         return pred_seqs, pred_words
 
-    def inference(self, dataloader, config):
+    def inference(self, dataloader, test_config):
         """
         Evaluate model on test dataest.
 
@@ -128,7 +129,8 @@ class BaseASRModule(LightningModule):
         test_ter_outputs, test_acc_outputs = [], []
         beam_search_decoder = get_beam_decoder(
             split='test',
-            config=config
+            test_config=test_config,
+            model_config=self.config,
         )
 
         j = 0
@@ -172,9 +174,9 @@ class BaseASRModule(LightningModule):
         )
         # return [optimizer], [lr_scheduler]
         return {
-            'optimizer': optimizer,
-            'scheduler': lr_scheduler,
-            'monitor': 'val_acc'
+            "optimizer": optimizer, 
+            "lr_scheduler": lr_scheduler, 
+            "monitor": "val/acc"
         }
 
     def get_train_dataloader(self, trainset):

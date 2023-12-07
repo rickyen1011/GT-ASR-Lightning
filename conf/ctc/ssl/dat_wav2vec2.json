@@ -1,6 +1,6 @@
 {
     "exp_dir": "mswc-en-fr-it-MP-thresh1000-num1000",
-    "unit": "test",
+    "unit": "MP",
     "trainer":{
         "max_epochs": 20,
         "deterministic": false,
@@ -13,19 +13,32 @@
         }
     },
     "lightning_module": {
-        "module": "lightning_modules.regular_module",
-        "main": "BaseASRModule"
+        "module": "lightning_modules.dat_module",
+        "main": "DATASRModule"
     },
     "ASR_model": {
-        "module": "models.ssl",
-        "main": "SSLASR",
+        "module": "models.ssl_dat",
+        "main": "SSLDATASR",
         "args": {
             "base_args": {
-                "num_class": 34
+                "num_class": 26
             },
             "SSL_backbone_args": {
                 "pretrained_model": "wav2vec2_base",
                 "d_encoder": 768
+            }
+        }
+    },
+    "dat": {
+        "gamma": 10
+    },
+    "discriminator": {
+        "module": "models.discriminator",
+        "main": "Discriminator",
+        "args": {
+            "base_args": {
+                "feature_dim": 768,
+                "num_domain": 3
             }
         }
     },
@@ -36,41 +49,50 @@
             "args": {}
         }        
     },
-    "optimizer": {
+    "optimizer_g": {
         "lr": 1e-4,
         "beta1": 0.9,
-        "beta2": 0.98,
+        "beta2": 0.999,
         "weight_decay": 0.0
     },
-    "lr_scheduler":{
+    "optimizer_d": {
+        "lr": 5e-4,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "weight_decay": 0.0
+    },
+    "lr_scheduler_g":{
         "threshold": 1e-2,
         "factor": 0.5,
         "patience": 2,
         "min_lr": 1e-6
     },
+    "lr_scheduler_d":{
+        "decay_factor": 0.99
+    },
     "train_dataset": {
-        "module": "datasets.ctc.waveform_dataset",
+        "module": "datasets.ctc.waveform_dat_dataset",
         "main": "Dataset", 
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
             "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
             "json_file": "train.json",
-            "lexicon_file": "lexicon_chr.txt",
+            "lexicon_file": "lexicon_MP.txt",
             "split": null
         }
     },
     "validation_dataset": {
-        "module": "datasets.ctc.waveform_dataset",
+        "module": "datasets.ctc.waveform_dat_dataset",
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
             "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
             "json_file": "dev.json",
-            "lexicon_file": "lexicon_chr.txt",
+            "lexicon_file": "lexicon_MP.txt",
             "split": null
         },
         "beam_search_decoder": {
-            "token_file": "char.txt",
+            "token_file": "MP.txt",
             "lm_file": "id_lm.bin",
             "lm_weight": 3.23,
             "word_score": -0.26
@@ -82,11 +104,12 @@
         "shuffle": true,
         "pin_memory": true,
         "collate_fn": {
-            "module": "datasets.ctc.waveform_dataset",
+            "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
                 "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
-                "token_file": "char.json"
+                "token_file": "MP.json",
+                "langs": ["en", "fr", "it"]
             }
         }
     },
@@ -94,11 +117,12 @@
         "batch_size": 128,
         "num_workers": 32,
         "collate_fn": {
-            "module": "datasets.ctc.waveform_dataset",
+            "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
                 "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
-                "token_file": "char.json"
+                "token_file": "MP.json",
+                "langs": ["en", "fr", "it"]
             }
         }
     }
