@@ -102,7 +102,7 @@ def run_inference(lightning_module, dataloader, mode, config):
     elif mode == 'inference_dat':
         test_dacc_outputs = lightning_module.inference_dat(dataloader)
         all_dacc_preds, all_dacc_labels = \
-            [output[0] for output in test_dacc_outputs], [output[1] for output in test_adcc_outputs]
+            [output[0] for output in test_dacc_outputs], [output[1] for output in test_dacc_outputs]
         dacc = lightning_module.compute_acc(all_dacc_preds, all_dacc_labels)
         return {"Domain Classification Accuracy": dacc}
     else:

@@ -1,5 +1,5 @@
 {
-    "exp_dir": "mswc-en-fr-it-MP-thresh1000-num1000",
+    "exp_dir": "mswc-en-fr-it-ru-es-de-MP-thresh100-num1000",
     "unit": "MP",
     "trainer":{
         "max_epochs": 20,
@@ -9,7 +9,7 @@
         "early_stop": {
             "monitor": "val/acc",
             "mode": "max",
-            "patience": 5
+            "patience": 3
         }
     },
     "lightning_module": {
@@ -21,7 +21,7 @@
         "main": "SSLDATASR",
         "args": {
             "base_args": {
-                "num_class": 26
+                "num_class": 33
             },
             "SSL_backbone_args": {
                 "pretrained_model": "wav2vec2_base",
@@ -38,7 +38,7 @@
         "args": {
             "base_args": {
                 "feature_dim": 768,
-                "num_domain": 3
+                "num_domain": 6
             }
         }
     },
@@ -75,7 +75,7 @@
         "main": "Dataset", 
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+            "data_dir": "./data/mswc-en-fr-it-ru-es-de-MP-thresh100-num1000",
             "json_file": "train.json",
             "lexicon_file": "lexicon_MP.txt",
             "split": null
@@ -86,7 +86,7 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+            "data_dir": "./data/mswc-en-fr-it-ru-es-de-MP-thresh100-num1000",
             "json_file": "dev.json",
             "lexicon_file": "lexicon_MP.txt",
             "split": null
@@ -107,9 +107,9 @@
             "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+                "data_dir": "./data/mswc-en-fr-it-ru-es-de-MP-thresh100-num1000",
                 "token_file": "MP.json",
-                "langs": ["en", "fr", "it"]
+                "langs": ["en", "fr", "it", "ru", "es", "de"]
             }
         }
     },
@@ -120,9 +120,9 @@
             "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+                "data_dir": "./data/mswc-en-fr-it-ru-es-de-MP-thresh100-num1000",
                 "token_file": "MP.json",
-                "langs": ["en", "fr", "it"]
+                "langs": ["en", "fr", "it", "ru", "es", "de"]
             }
         }
     }

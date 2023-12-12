@@ -24,7 +24,7 @@ class Discriminator(nn.Module):
             nn.Dropout(),
             nn.Linear(in_features=1024, out_features=self.num_domain)
         )
-        weights = torch.FloatTensor([1, 4, 4]).cuda()
+        weights = torch.FloatTensor([1, 2, 2, 2, 2, 2]).cuda()
         self.criterion = FocalLoss(gamma=0.7, alpha=weights)
 
     def _compute_loss(self, outputs_d, targets_d):

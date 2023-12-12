@@ -8,6 +8,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lang', '-l', type=str, nargs='+', default=['en'], required=True, help='language to preprocess')
     parser.add_argument('--dir', '-d', type=str, required=True, help='directory that contains metadata to split')
+    parser.add_argument('--num', '-n', type=int, help='number samples per word for testing and development')
     args = parser.parse_args()
     
     splits = []
@@ -40,7 +41,7 @@ if __name__ == '__main__':
             if kw not in metadata['filenames']:
                 metadata['filenames'][kw] = []
 
-            if split != 'TRAIN' and metadata['wordcounts'][kw] == 50:
+            if split != 'TRAIN' and metadata['wordcounts'][kw] == args.num:
                 continue
             if path in all_data['filenames'][kw]:
                 metadata['wordcounts'][kw] += 1

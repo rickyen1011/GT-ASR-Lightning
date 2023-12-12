@@ -4,7 +4,7 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+            "data_dir": "./data/mswc-nl-MP-thresh1000-num1000",
             "json_file": "test.json",
             "lexicon_file": "lexicon_MP.txt",
             "split": null
@@ -23,9 +23,9 @@
             "module": "datasets.ctc.waveform_dat_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "./data/mswc-en-fr-it-MP-thresh1000-num1000",
+                "data_dir": "./data/mswc-nl-MP-thresh1000-num1000",
                 "token_file": "MP.json",
-                "langs": ["en", "fr", "it"]
+                "langs": ["nl"]
             }
         }
     }
