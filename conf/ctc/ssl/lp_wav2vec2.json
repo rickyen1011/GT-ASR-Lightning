@@ -1,5 +1,5 @@
 {
-    "exp_dir": "mswc-lv-MP-top30",
+    "exp_dir": "mswc-tr-MP-top30_lp_map",
     "unit": "MP",
     "trainer":{
         "max_epochs": 30,
@@ -18,17 +18,19 @@
         "main": "BaseASRModule"
     },
     "ASR_model": {
-        "module": "models.ssl",
-        "main": "SSLASR",
+        "module": "models.ssl_lp",
+        "main": "SSLASRLP",
         "args": {
             "base_args": {
                 "num_class": 33
             },
             "SSL_backbone_args": {
                 "pretrained_model": "wav2vec2_base",
-                "d_encoder": 768
-            },
-            "linear_prob": true
+                "d_encoder": 768,
+                "linear_prob": true,
+                "map": true,
+                "regularization_weight": 1.0
+            }
         }
     },
     "decoder": {
@@ -56,7 +58,7 @@
         "main": "Dataset", 
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "data/mswc-lv-MP-top30",
+            "data_dir": "data/mswc-tr-MP-top30",
             "json_file": "train.json",
             "lexicon_file": "lexicon_MP.txt",
             "split": null
@@ -67,7 +69,7 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "data/mswc-lv-MP-top30",
+            "data_dir": "data/mswc-tr-MP-top30",
             "json_file": "dev.json",
             "lexicon_file": "lexicon_MP.txt",
             "split": null
@@ -88,7 +90,7 @@
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "data/mswc-lv-MP-top30",
+                "data_dir": "data/mswc-tr-MP-top30",
                 "token_file": "MP_lp.json"
             }
         }
@@ -100,7 +102,7 @@
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "data/mswc-lv-MP-top30",
+                "data_dir": "data/mswc-tr-MP-top30",
                 "token_file": "MP_lp.json"
             }
         }

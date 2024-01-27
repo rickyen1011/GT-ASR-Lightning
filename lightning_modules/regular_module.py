@@ -11,7 +11,7 @@ from pytorch_lightning import LightningModule
 from torchmetrics import Accuracy
 from torchmetrics.text import WordErrorRate
 
-from utils.utils import initialize_config
+from utils.utils import initialize_config, load_pretrained_model
 from utils.text_process import TextTransform
 from models.decoder import get_beam_decoder
 
@@ -229,3 +229,6 @@ class BaseASRModule(LightningModule):
             num_workers=test_config["test_dataloader"]["num_workers"],
             collate_fn=collate_fn.collate_fn,
         )
+
+    def load_pretrained_model(self, ckpt_path, pretrained_model_config):
+        self.ASR_model = load_pretrained_model(pretrained_model_config, ckpt_path, prefix="ASR_model.")

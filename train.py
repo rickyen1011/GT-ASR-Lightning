@@ -89,8 +89,8 @@ def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val, strategy):
         dirpath=checkpoint_dir,
         monitor="val/acc",
         mode="max",
-        filename='epoch{epoch}-step{step}-val_acc{val/acc:.4f}',
-        save_top_k=-1,
+        filename='best',
+        save_top_k=1,
         verbose=True,
         save_weights_only=True,
         auto_insert_metric_name=False,
@@ -100,7 +100,7 @@ def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val, strategy):
         monitor="val/ter",
         mode="min",
         filename='epoch{epoch}-step{step}-val_loss{val/loss:.4f}',
-        save_top_k=-1,
+        save_top_k=1,
         verbose=True,
         save_weights_only=True,
         auto_insert_metric_name=False,
@@ -156,13 +156,12 @@ def main():
         (exp_dir / CKPT_DIR / "last.ckpt") if args.resume else args.checkpoint_path
     )
     if ckpt_path:
-        print (f'Load from checkpoint {ckpt_path}')
         lightning_module = initialize_config(
             config["lightning_module"], pass_args=False
-        ).load_from_checkpoint(
-            checkpoint_path=args.checkpoint_path,
-            config=config
-        )
+        )(config)
+        pretrained_model_config = config["ASR_model"]
+        lightning_module.load_pretrained_model(ckpt_path, pretrained_model_config)
+
     else:
         lightning_module = initialize_config(
             config["lightning_module"], pass_args=False

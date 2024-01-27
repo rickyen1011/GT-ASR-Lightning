@@ -8,7 +8,7 @@ import torchaudio
 
 
 class SSLASR(nn.Module):
-    def __init__(self, base_args, SSL_backbone_args, linear_prob=False):
+    def __init__(self, base_args, SSL_backbone_args):
         super(SSLASR, self).__init__()
         for key, value in base_args.items():
             setattr(self, key, value)
@@ -27,11 +27,6 @@ class SSLASR(nn.Module):
             raise NotImplementedError()
         
         self.encoder = bundle.get_model()
-        if linear_prob:
-            self.encoder.eval()
-            for param in self.encoder.parameters():
-                param.requires_grad = False
-
         self.decoder_phn = nn.Linear(self.d_encoder, self.num_class+1)
             
         self.ctc_criterion = nn.CTCLoss(blank=self.num_class, zero_infinity=True)

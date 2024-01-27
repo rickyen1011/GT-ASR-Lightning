@@ -66,7 +66,7 @@ def load_pretrained_model(
     pretrained_model_config: dict, 
     pretrained_model_checkpoint_path: str = None,
     prefix: str = None,
-    device: Union[str, torch.device] = "cpu"
+    device: Union[str, torch.device] = "cuda:0"
 ) -> nn.Module:
     """
     Load a pre-trained model from a checkpoint.
@@ -98,43 +98,3 @@ def load_pretrained_model(
         pretrained_model.load_state_dict(state_dict)
 
     return pretrained_model.to(device)
-
-def sample_fixed_length_data_aligned(data_a, data_b, sample_length):
-    """
-    
-    
-    """
-    assert data_a.shape == data_b.shape, "Inconsistent dataset size."
-    dim = np.ndim(data_a)
-    assert dim == 1 or dim == 2, "Only support 1D or 2D."
-
-    if data_a.shape[-1] > sample_length:
-        frames_total = data_a.shape[-1]
-        start = np.random.randint(frames_total - sample_length + 1)
-        end = start + sample_length
-        if dim == 1:
-            return data_a[start:end], data_b[start:end]
-        else:
-            return data_a[:, start:end], data_b[:, start:end]
-    elif data_a.shape[-1] == sample_length:
-        return data_a, data_b
-    else:
-        frames_total = data_a.shape[-1]
-        if dim == 1:
-            return np.append(
-                data_a,
-                np.zeros(sample_length - frames_total, dtype=np.float32)
-            ), np.append(
-                data_b,
-                np.zeros(sample_length - frames_total, dtype=np.float32)
-            )
-        else:
-            return np.append(
-                data_a,
-                np.zeros(shape=(data_a.shape[0], sample_length - frames_total), dtype=np.float32),
-                axis=-1
-            ), np.append(
-                data_b,
-                np.zeros(shape=(data_a.shape[0], sample_length - frames_total), dtype=np.float32),
-                axis=-1
-            )
