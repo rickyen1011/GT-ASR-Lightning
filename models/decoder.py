@@ -21,9 +21,9 @@ def get_beam_decoder(
     test_config,
     model_config,
     nbest=5, 
-    beam_size=10, 
-    lm_weight=3.23, 
-    word_score=-0.26,
+    beam_size=50, 
+    lm_weight=2, 
+    word_score=0,
     blank_token='<blank>'
 ):
 

@@ -72,11 +72,11 @@ class BaseASRModule(LightningModule):
             )
 
     def training_step(self, batch, batch_idx):
-        waveforms, labels, input_lengths, label_lengths, references, references_word = batch
+        waveforms, labels, input_lengths, label_lengths, references, references_word, langs = batch
         return self._compute_loss(waveforms, labels, input_lengths, label_lengths, "train")
 
     def validation_step(self, batch, batch_idx):
-        waveforms, labels, input_lengths, label_lengths, references, references_word = batch
+        waveforms, labels, input_lengths, label_lengths, references, references_word, langs = batch
         loss = self._compute_loss(waveforms, labels, input_lengths, label_lengths, "val")
         outputs = self.ASR_model.inference(waveforms)
 
@@ -86,7 +86,6 @@ class BaseASRModule(LightningModule):
             test_config=self.config
         )
         pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
-        # print (pred_words)
 
         for i in range(len(pred_words)):
             self.val_ter_outputs.append([pred_seqs[i], references[i]])
@@ -103,15 +102,15 @@ class BaseASRModule(LightningModule):
         self.val_ter_outputs.clear()
         self.val_acc_outputs.clear()
 
-    def _predict(self, outputs, beam_search_decoder):
+    def _predict(self, outputs, beam_search_decoder, word_clause=None):
         inds = self.greedy_decoder(outputs.detach())
-        pred_seqs = [self.text_transform.int_to_text(ind) for ind in inds]
-        # if pred_seq in word_clause:
-        #     pred_word = word_clause[pred_seq]
-                
-        # else:
+        pred_seqs = [self.text_transform.int_to_text(ind) for ind in inds]  
         beam_search_result = beam_search_decoder(outputs.detach().cpu())
         pred_words = [" ".join(hypo[0].words).strip() for hypo in beam_search_result]
+
+        for i, gd in enumerate(pred_seqs):
+            if word_clause and gd in word_clause:
+                pred_words[i] = word_clause[gd]
         # j = 1
         # while pred_word == '' and j < len(beam_search_result[0]):
         #     pred_word = " ".join(beam_search_result[0][j].words).strip()
@@ -126,25 +125,41 @@ class BaseASRModule(LightningModule):
         Args:
             dataloader: test dataloader
         """
-        test_ter_outputs, test_acc_outputs = [], []
+        test_ter_outputs, test_acc_outputs = {'All': []}, {'All': []}
         beam_search_decoder = get_beam_decoder(
             split='test',
             test_config=test_config,
             model_config=self.config,
         )
+        lexicon_file = os.path.join(
+            self.config["validation_dataset"]["args"]["data_dir"],
+            self.config["validation_dataset"]["args"]["lexicon_file"]
+        )
+        word_clause = {}
+        with open(lexicon_file, 'r') as f:
+            for line in f.readlines():
+                line = line.strip().split()
+                word, seq = line[0], ' '.join(line[1:])
+                word_clause[seq] = word
 
         j = 0
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Inference"):
-                waveforms, labels, input_lengths, label_lengths, references, references_word = batch
+                waveforms, labels, input_lengths, label_lengths, references, references_word, langs = batch
                 waveforms = waveforms.to(device=self.device)
                 outputs = self.ASR_model.inference(waveforms)
         
                 pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
         
                 for i in range(len(pred_words)):
-                    test_ter_outputs.append([pred_seqs[i], references[i]])
-                    test_acc_outputs.append([pred_words[i], references_word[i]])
+                    lang = langs[i]
+                    if lang not in test_ter_outputs:
+                        test_ter_outputs[lang] = []
+                        test_acc_outputs[lang] = []
+                    test_ter_outputs[lang].append([pred_seqs[i], references[i]])
+                    test_acc_outputs[lang].append([pred_words[i], references_word[i]])
+                    test_ter_outputs['All'].append([pred_seqs[i], references[i]])
+                    test_acc_outputs['All'].append([pred_words[i], references_word[i]])
                 
                 j += 1
 
@@ -170,9 +185,10 @@ class BaseASRModule(LightningModule):
             threshold=self.config["lr_scheduler"]["threshold"], 
             factor=self.config["lr_scheduler"]["factor"], 
             patience=self.config["lr_scheduler"]["patience"],
-            min_lr=self.config["lr_scheduler"]["min_lr"]
+            min_lr=self.config["lr_scheduler"]["min_lr"],
+            verbose=self.config["lr_scheduler"]["verbose"]
         )
-        # return [optimizer], [lr_scheduler]
+        
         return {
             "optimizer": optimizer, 
             "lr_scheduler": lr_scheduler, 

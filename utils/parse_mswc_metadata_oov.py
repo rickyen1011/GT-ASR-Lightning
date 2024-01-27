@@ -18,7 +18,12 @@ if __name__ == '__main__':
     parser.add_argument('--topk', '-t', type=int, default=None, help='select the top k keywords')
     parser.add_argument('--num', '-n', type=int, default=None, help='limit the number of utterances per keyword')
     parser.add_argument('--len', type=int, default=None, help='constraint to length of keywords')
+    parser.add_argument('--iv_path', type=str, required=True, help='files contain in-vocabulary keywords')
     args = parser.parse_args()
+
+    with open(os.path.join(args.iv_path, 'train.json'), 'r') as f:
+        iv_dict = json.load(f)
+        iv = list(iv_dict['wordcounts'].keys())
 
     if args.pv:
         attr_path = args.attr
@@ -51,7 +56,6 @@ if __name__ == '__main__':
     lang2nwords = {}
 
     for lang in args.lang:
-        
         backend, separator = get_backend_separator(lang)
         lang_data = dict(all_data[lang])
         extract_data['languages'].append(lang_data['language'])
@@ -65,6 +69,8 @@ if __name__ == '__main__':
                 json.dump(lang_data, f, indent=4, ensure_ascii=False)
 
         for word, count in tqdm(sorted_wordcounts.items()):
+            if word in iv:
+                continue
             if args.thresh and count < args.thresh or count == 0:
                 continue
             if args.topk and len(word_clause_attr) == args.topk:
@@ -95,6 +101,8 @@ if __name__ == '__main__':
             if 'stp-uvl' in attr_seq:
                 continue
             if 'apr-lbd' in attr_seq:
+                continue
+            if 'stp-dnt' in attr_seq:
                 continue
             
             if attr_seq not in word_clause_attr:

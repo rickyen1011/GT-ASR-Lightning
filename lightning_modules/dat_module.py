@@ -128,7 +128,7 @@ class DATASRModule(BaseASRModule):
 
 
     def training_step(self, batch, batch_idx):
-        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d = batch
+        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
         loss_d = self._compute_d_loss(
             waveforms, labels, input_lengths, label_lengths, labels_d, "train"
         )
@@ -147,7 +147,7 @@ class DATASRModule(BaseASRModule):
 
 
     def validation_step(self, batch, batch_idx):
-        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d = batch
+        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
         outputs, features = self.ASR_model.inference(waveforms)
         outputs_d = self.discriminator.inference(features)
         outputs_d = torch.argmax(outputs_d, dim=-1)
@@ -206,7 +206,7 @@ class DATASRModule(BaseASRModule):
         Args:
             dataloader: test dataloader
         """
-        test_ter_outputs, test_acc_outputs = [], []
+        test_ter_outputs, test_acc_outputs = {'All': []}, {'All': []}
         beam_search_decoder = get_beam_decoder(
             split='test',
             test_config=test_config,
@@ -216,7 +216,7 @@ class DATASRModule(BaseASRModule):
         j = 0
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Inference"):
-                waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d = batch
+                waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
                 waveforms = waveforms.to(device=self.device)
                 outputs, features = self.ASR_model.inference(waveforms)
                 outputs_d = self.discriminator.inference(features)
@@ -225,8 +225,14 @@ class DATASRModule(BaseASRModule):
                 pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
         
                 for i in range(len(pred_words)):
-                    test_ter_outputs.append([pred_seqs[i], references[i]])
-                    test_acc_outputs.append([pred_words[i], references_word[i]])
+                    lang = langs[i]
+                    if lang not in test_ter_outputs:
+                        test_ter_outputs[lang] = []
+                        test_acc_outputs[lang] = []
+                    test_ter_outputs[lang].append([pred_seqs[i], references[i]])
+                    test_acc_outputs[lang].append([pred_words[i], references_word[i]])
+                    test_ter_outputs['All'].append([pred_seqs[i], references[i]])
+                    test_acc_outputs['All'].append([pred_words[i], references_word[i]])
                 
                 j += 1
 

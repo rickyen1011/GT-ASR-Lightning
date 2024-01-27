@@ -3,6 +3,7 @@ import argparse
 import pandas as pd
 from collections import defaultdict
 from tqdm import tqdm
+import json
 import torch
 import numpy as np
 import torch.multiprocessing
@@ -88,17 +89,24 @@ def run_inference(lightning_module, dataloader, mode, config):
     Returns:
         Dict: Dictionary of score records.
     """
-    score_records = dict()
+    
     i = 0
     if mode == "inference":
+        score_records = {"Token Error Rate (TER)": {}, "Accuracy": {}}
         test_ter_outputs, test_acc_outputs = lightning_module.inference(dataloader, config)
-        all_ter_preds, all_ter_labels = \
-            [output[0] for output in test_ter_outputs], [output[1] for output in test_ter_outputs]
-        all_acc_preds, all_acc_labels = \
-            [output[0] for output in test_acc_outputs], [output[1] for output in test_acc_outputs]
-        ter = lightning_module.ter(all_ter_preds, all_ter_labels)
-        acc = lightning_module.compute_acc(all_acc_preds, all_acc_labels)
-        return {"Token Error Rate (TER)": ter, "Accuracy": acc}
+        for lang, lang_ter_outputs in test_ter_outputs.items():
+            lang_ter_preds, lang_ter_labels = \
+                [output[0] for output in lang_ter_outputs], \
+                [output[1] for output in lang_ter_outputs]
+            lang_ter = lightning_module.ter(lang_ter_preds, lang_ter_labels).item()
+            score_records["Token Error Rate (TER)"][lang] = lang_ter
+        for lang, lang_acc_outputs in test_acc_outputs.items():
+            lang_acc_preds, lang_acc_labels = \
+                [output[0] for output in lang_acc_outputs], \
+                [output[1] for output in lang_acc_outputs]
+            lang_acc = lightning_module.compute_acc(lang_acc_preds, lang_acc_labels)
+            score_records["Accuracy"][lang] = lang_acc
+        return score_records
     elif mode == 'inference_dat':
         test_dacc_outputs = lightning_module.inference_dat(dataloader)
         all_dacc_preds, all_dacc_labels = \
@@ -107,7 +115,6 @@ def run_inference(lightning_module, dataloader, mode, config):
         return {"Domain Classification Accuracy": dacc}
     else:
         raise NotImplementedError
-
 
 
 def save_results(score_records, output_dir, mode):
@@ -119,11 +126,8 @@ def save_results(score_records, output_dir, mode):
         output_dir (pathlib.Path): Directory to save the results.
         mode (str):
     """
-    log_file_path = output_dir / "log.txt"
-    with log_file_path.open("a") as outfile:
-        for key, value in score_records.items():
-            print(f"{key}: {value:.4f}")
-            print(f"{key}: {value:.4f}", file=outfile)
+    for key, value in score_records.items():
+        print(f"{key}: {value}")
 
     if mode == "inference":
         json_output_path = output_dir / "inference_scores.json"

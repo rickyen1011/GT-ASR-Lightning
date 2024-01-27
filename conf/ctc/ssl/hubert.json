@@ -25,7 +25,7 @@
                 "num_class": 18
             },
             "SSL_backbone_args": {
-                "pretrained_model": "wav2vec2_xlsr_2b",
+                "pretrained_model": "hubert_large",
                 "d_encoder": 1024
             }
         }

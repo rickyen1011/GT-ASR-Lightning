@@ -4,16 +4,15 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "./data/mswc-nl-MP-thresh50",
+            "data_dir": "./data/mswc-tr-MP-top30",
             "json_file": "test.json",
             "lexicon_file": "lexicon_MP.txt",
-            "split": null
+            "split": "tr"
         },
         "beam_search_decoder": {
-            "token_file": "MP.txt",
             "lm_file": "id_lm.bin",
-            "lm_weight": 3.23,
-            "word_score": -0.26
+            "lm_weight": 2,
+            "word_score": 0
         }
     },
     "test_dataloader": {
@@ -23,7 +22,7 @@
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "./data/mswc-nl-MP-thresh50",
+                "data_dir": "./data/mswc-tr-MP-top30",
                 "token_file": "MP.json"
             }
         }

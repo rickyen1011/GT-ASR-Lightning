@@ -44,7 +44,13 @@ def parse_args():
         "--gradient-clip-val",
         default=None,
         type=float,
-        help="Gradient clipping threshold. (Default: 1.0)",
+        help="Gradient clipping threshold. (Default: None)",
+    )
+    parser.add_argument(
+        "--strategy",
+        default="ddp",
+        type=str,
+        help="Strategy for the trainer. Currently support ddp and ddp_find_unused_parameters_true ",
     )
     return parser.parse_args()
 
@@ -76,25 +82,28 @@ def setup_experiment_dirs(config, config_path, checkpoint_path):
     return exp_dir
 
 
-def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val):
+def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val, strategy):
     """Configure and return a PyTorch Lightning Trainer instance."""
     checkpoint_dir = exp_dir / CKPT_DIR
     val_acc_checkpoint = ModelCheckpoint(
         dirpath=checkpoint_dir,
         monitor="val/acc",
         mode="max",
-        filename="best",
-        save_top_k=1,
+        filename='epoch{epoch}-step{step}-val_acc{val/acc:.4f}',
+        save_top_k=-1,
         verbose=True,
         save_weights_only=True,
+        auto_insert_metric_name=False,
     )
     val_ter_checkpoint = ModelCheckpoint(
         dirpath=checkpoint_dir,
         monitor="val/ter",
         mode="min",
-        save_top_k=3,
+        filename='epoch{epoch}-step{step}-val_loss{val/loss:.4f}',
+        save_top_k=-1,
         verbose=True,
-        save_last=True,
+        save_weights_only=True,
+        auto_insert_metric_name=False,
     )
     early_stop = EarlyStopping(
         monitor=trainer_config["early_stop"]["monitor"],
@@ -104,7 +113,7 @@ def get_trainer(exp_dir, trainer_config, gpus, gradient_clip_val):
     callbacks = [val_acc_checkpoint, val_ter_checkpoint, early_stop]
     return Trainer(
         default_root_dir=exp_dir,
-        strategy="ddp_find_unused_parameters_true",
+        strategy=strategy,
         accelerator="gpu",
         devices=gpus,
         callbacks=callbacks,
@@ -136,16 +145,28 @@ def main():
         initialize_config(config["train_dataset"]),
         initialize_config(config["validation_dataset"]),
     )
-    lightning_module = initialize_config(
-        config["lightning_module"], pass_args=False
-    )(config)
+    # lightning_module = initialize_config(
+    #     config["lightning_module"], pass_args=False
+    # )(config)
 
     trainer = get_trainer(
-        exp_dir, config["trainer"], args.gpus, args.gradient_clip_val
+        exp_dir, config["trainer"], args.gpus, args.gradient_clip_val, args.strategy
     )
     ckpt_path = (
         (exp_dir / CKPT_DIR / "last.ckpt") if args.resume else args.checkpoint_path
     )
+    if ckpt_path:
+        print (f'Load from checkpoint {ckpt_path}')
+        lightning_module = initialize_config(
+            config["lightning_module"], pass_args=False
+        ).load_from_checkpoint(
+            checkpoint_path=args.checkpoint_path,
+            config=config
+        )
+    else:
+        lightning_module = initialize_config(
+            config["lightning_module"], pass_args=False
+        )(config)
 
     train_dataloader = lightning_module.get_train_dataloader(train_dataset)
     val_dataloader = lightning_module.get_val_dataloader(val_dataset)
@@ -154,7 +175,6 @@ def main():
         lightning_module,
         train_dataloader,
         val_dataloader,
-        ckpt_path=str(ckpt_path) if ckpt_path else None,
     )
 
 
