@@ -95,6 +95,10 @@ def load_pretrained_model(
             state_dict = {key.replace(prefix, '', 1) if key.startswith(prefix) else key: value 
                           for key, value in state_dict.items()}
         
+        state_dict_tmp = state_dict.copy()
+        for key, value in state_dict_tmp.items():
+            if key.startswith('discriminator'):
+                state_dict.pop(key)
         pretrained_model.load_state_dict(state_dict)
 
     return pretrained_model.to(device)

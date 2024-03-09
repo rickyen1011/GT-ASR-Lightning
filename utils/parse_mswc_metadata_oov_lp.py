@@ -3,6 +3,7 @@ import sys
 import json
 import argparse
 from tqdm import tqdm
+import random
 
 from tools import get_phn2attr_dict, word2phone, get_backend_separator
 
@@ -18,12 +19,13 @@ if __name__ == '__main__':
     parser.add_argument('--topk', '-t', type=int, default=None, help='select the top k keywords')
     parser.add_argument('--num', '-n', type=int, default=None, help='limit the number of utterances per keyword')
     parser.add_argument('--len', type=int, default=None, help='constraint to length of keywords')
-    parser.add_argument('--iv_path', type=str, required=True, help='files contain in-vocabulary keywords')
+    parser.add_argument('--iv_path', type=str, required=False, help='files contain in-vocabulary keywords')
     args = parser.parse_args()
 
-    with open(os.path.join(args.iv_path, 'train.json'), 'r') as f:
-        iv_dict = json.load(f)
-        iv = list(iv_dict['wordcounts'].keys())
+    if args.iv_path:    
+        with open(os.path.join(args.iv_path, 'train.json'), 'r') as f:
+            iv_dict = json.load(f)
+            iv = list(iv_dict['wordcounts'].keys())
 
     if args.pv:
         attr_path = args.attr
@@ -33,7 +35,7 @@ if __name__ == '__main__':
     output_dir = f'data/mswc-{lang_path}-{attr_path}'
     if args.topk:
         output_dir += f'-top{args.topk}'
-    elif args.thresh:
+    if args.thresh:
         output_dir += f'-thresh{args.thresh}'
     if args.num:
         output_dir += f'-num{args.num}'
@@ -45,6 +47,7 @@ if __name__ == '__main__':
         os.makedirs(output_dir)
     else:
         print ("path already exists")
+        sys.exit()
 
     phn2attr = get_phn2attr_dict(attrs=args.attr, P_of_vowel=args.pv)
 
@@ -61,8 +64,10 @@ if __name__ == '__main__':
         backend, separator = get_backend_separator(lang)
         lang_data = dict(all_data[lang])
         extract_data['languages'].append(lang_data['language'])
-        sorted_wordcounts = dict(sorted(lang_data["wordcounts"].items(), key=lambda x: x[1], reverse=True))
-        lang_data['wordcounts'] = sorted_wordcounts
+        d = lang_data["wordcounts"]
+        shuffle_wordcounts = {k:d[k] for k in random.sample(list(d.keys()), len(d))}
+        # sorted_wordcounts = dict(sorted(lang_data["wordcounts"].items(), key=lambda x: x[1], reverse=True))
+        lang_data['wordcounts'] = shuffle_wordcounts
         if lang not in total_counts:
             total_counts[lang] = 0
             lang2nwords[lang] = 0
@@ -70,8 +75,8 @@ if __name__ == '__main__':
             with open(f'data/mswc/metadata_{lang}.json', 'w', encoding='utf8') as f:
                 json.dump(lang_data, f, indent=4, ensure_ascii=False)
 
-        for word, count in tqdm(sorted_wordcounts.items()):
-            if word in iv:
+        for word, count in tqdm(shuffle_wordcounts.items()):
+            if args.iv_path and word in iv:
                 continue
             if args.thresh and count < args.thresh or count == 0:
                 continue

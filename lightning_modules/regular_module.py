@@ -16,11 +16,13 @@ from utils.text_process import TextTransform
 from models.decoder import get_beam_decoder
 
 class BaseASRModule(LightningModule):
-    def __init__(self, config):
+    def __init__(self, config, mode='train'):
         super().__init__()
 
         self.config = config
         self.ASR_model = initialize_config(config["ASR_model"])
+        if mode == "test":
+            self.set_model_lp()
         self.greedy_decoder = initialize_config(config["decoder"]["greedy_decoder"])
         token_file = os.path.join(
             self.config["validation_dataset"]["args"]["data_dir"],
@@ -106,7 +108,14 @@ class BaseASRModule(LightningModule):
         inds = self.greedy_decoder(outputs.detach())
         pred_seqs = [self.text_transform.int_to_text(ind) for ind in inds]  
         beam_search_result = beam_search_decoder(outputs.detach().cpu())
-        pred_words = [" ".join(hypo[0].words).strip() for hypo in beam_search_result]
+
+        pred_words = []
+        for hypo in beam_search_result:
+            word = " ".join(hypo[0].words) if hypo else ""
+            if len(word.split()) > 1:
+                pred_words.append(word.split()[0])
+            else:
+                pred_words.append(word)
 
         for i, gd in enumerate(pred_seqs):
             if word_clause and gd in word_clause:
@@ -148,9 +157,9 @@ class BaseASRModule(LightningModule):
                 waveforms, labels, input_lengths, label_lengths, references, references_word, langs = batch
                 waveforms = waveforms.to(device=self.device)
                 outputs = self.ASR_model.inference(waveforms)
-        
+
                 pred_seqs, pred_words = self._predict(outputs, beam_search_decoder)
-        
+
                 for i in range(len(pred_words)):
                     lang = langs[i]
                     if lang not in test_ter_outputs:
@@ -227,8 +236,20 @@ class BaseASRModule(LightningModule):
             dataset=testset,
             batch_size=test_config["test_dataloader"]["batch_size"],
             num_workers=test_config["test_dataloader"]["num_workers"],
+            shuffle=False,
             collate_fn=collate_fn.collate_fn,
         )
 
     def load_pretrained_model(self, ckpt_path, pretrained_model_config):
         self.ASR_model = load_pretrained_model(pretrained_model_config, ckpt_path, prefix="ASR_model.")
+
+    def set_model_lp(self):
+        if self.config["ASR_model"]["args"]["SSL_backbone_args"]["map"]:
+            self.ASR_model.set_target_weight()
+        elif self.config["ASR_model"]["args"]["SSL_backbone_args"]["kld"]:
+            self.ASR_model.set_pretrained_model()
+        elif self.config["ASR_model"]["args"]["SSL_backbone_args"]["expand"]:
+            self.ASR_model.expand_linear()
+        # if self.config["ASR_model"]["args"]["SSL_backbone_args"]["nmr"]:
+        #     self.ASR_model.set_nmr()
+

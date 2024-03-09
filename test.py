@@ -55,7 +55,7 @@ def main(args):
         args (argparse.Namespace): Command line arguments.
     """
     config = load_config(args.config)['config']
-    print (config)
+    # print (config)
     testset_config = load_config(args.testset_config)
 
     testset_name = args.testset_config.stem
@@ -68,7 +68,8 @@ def main(args):
         config["lightning_module"], pass_args=False
     ).load_from_checkpoint(
         checkpoint_path=args.checkpoint_path,
-        config=config
+        config=config,
+        mode='test'
     )
     lightning_module = lightning_module.to(device="cuda").eval()
     test_dataloader = lightning_module.get_test_dataloader(test_dataset, testset_config)

@@ -1,8 +1,8 @@
 {
-    "exp_dir": "mswc-lt-MP-top10_lp",
-    "unit": "phone",
+    "exp_dir": "mswc-lt-MP-top30_nmr",
+    "unit": "MP",
     "trainer":{
-        "max_epochs": 50,
+        "max_epochs": 30,
         "deterministic": false,
         "val_check_interval": 1.0,
         "accumulate_grad_batches": 1,
@@ -18,22 +18,16 @@
         "main": "BaseASRModule"
     },
     "ASR_model": {
-        "module": "models.ssl_lp",
-        "main": "SSLASRLP",
+        "module": "models.ssl_nmr",
+        "main": "SSLASRNMR",
         "args": {
             "base_args": {
-                "num_class": 73,
-                "num_class_target": 80
+                "num_class": 33
             },
             "SSL_backbone_args": {
                 "pretrained_model": "wav2vec2_base",
                 "d_encoder": 768,
-                "linear_prob": true,
-                "map": false,
-                "kld": false,
-                "expand": true,
-                "regularization_weight": 100.0,
-                "kld_weight": 0.1
+                "nmr": true
             }
         }
     },
@@ -62,9 +56,9 @@
         "main": "Dataset", 
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "data/mswc-lt-MP-top10-thresh20-num20",
+            "data_dir": "data/mswc-lt-MP-top30",
             "json_file": "train.json",
-            "lexicon_file": "lexicon_phone.txt",
+            "lexicon_file": "lexicon_MP.txt",
             "split": null
         }
     },
@@ -73,20 +67,20 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "data/mswc-lt-MP-top10-thresh20-num20",
+            "data_dir": "data/mswc-lt-MP-top30",
             "json_file": "dev.json",
-            "lexicon_file": "lexicon_phone.txt",
+            "lexicon_file": "lexicon_MP.txt",
             "split": null
         },
         "beam_search_decoder": {
-            "token_file": "phone_lp.txt",
+            "token_file": "MP_nmr.txt",
             "lm_file": "id_lm.bin",
             "lm_weight": 2,
             "word_score": 0
         }
     },
     "train_dataloader": {
-        "batch_size": 16,
+        "batch_size": 32,
         "num_workers": 32,
         "shuffle": true,
         "pin_memory": true,
@@ -94,20 +88,20 @@
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "data/mswc-lt-MP-top10-thresh20-num20",
-                "token_file": "phone_lp.json"
+                "data_dir": "data/mswc-lt-MP-top30",
+                "token_file": "MP_nmr.json"
             }
         }
     },
     "val_dataloader": {
-        "batch_size": 16,
+        "batch_size": 32,
         "num_workers": 32,
         "collate_fn": {
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "data/mswc-lt-MP-top10-thresh20-num20",
-                "token_file": "phone_lp.json"
+                "data_dir": "data/mswc-lt-MP-top30",
+                "token_file": "MP_nmr.json"
             }
         }
     }

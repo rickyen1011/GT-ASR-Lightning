@@ -16,17 +16,17 @@ class SSLASR(nn.Module):
             setattr(self, key, value)
         
         if self.pretrained_model == 'hubert_base':
-            bundle =  torchaudio.pipelines.HUBERT_BASE
+            self.bundle =  torchaudio.pipelines.HUBERT_BASE
         elif self.pretrained_model == 'hubert_large':
-            bundle =  torchaudio.pipelines.HUBERT_LARGE
+            self.bundle =  torchaudio.pipelines.HUBERT_LARGE
         elif self.pretrained_model == 'wav2vec2_base':
-            bundle =  torchaudio.pipelines.WAV2VEC2_BASE
+            self.bundle =  torchaudio.pipelines.WAV2VEC2_BASE
         elif self.pretrained_model == 'wav2vec2_xlsr':
-            bundle =  torchaudio.pipelines.WAV2VEC2_XLSR53
+            self.bundle =  torchaudio.pipelines.WAV2VEC2_XLSR53
         else:
             raise NotImplementedError()
         
-        self.encoder = bundle.get_model()
+        self.encoder = self.bundle.get_model()
         self.decoder_phn = nn.Linear(self.d_encoder, self.num_class+1)
             
         self.ctc_criterion = nn.CTCLoss(blank=self.num_class, zero_infinity=True)
@@ -60,4 +60,4 @@ class SSLASR(nn.Module):
     def inference(self, x):
         outputs = self._forward(x)
 
-        return outputs
+        return F.log_softmax(outputs, dim=-1)

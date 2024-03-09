@@ -7,6 +7,21 @@ import torch.nn.functional as F
 import torchaudio
 
 
+def create_map():
+    num_phn_tokens = len(text_transform_phn.unit_map)
+
+    manner_map = torch.zeros((self.hparams.num_class_manner+1, num_phn_tokens)).cuda()
+    place_map = torch.zeros((self.hparams.num_class_place+1, num_phn_tokens)).cuda()
+    voicing_map = torch.zeros((self.hparams.num_class_voicing+1, num_phn_tokens)).cuda()
+    backness_map = torch.zeros((self.hparams.num_class_backness+1, num_phn_tokens)).cuda()
+    round_map = torch.zeros((self.hparams.num_class_round+1, num_phn_tokens)).cuda()
+        
+    for phn, phn_idx in text_transform_phn.unit_map.items():
+
+
+    return 
+
+
 class SSLKIASR(nn.Module):
     def __init__(self, base_args, SSL_backbone_args):
         super(SSLKIASR, self).__init__()
@@ -82,4 +97,4 @@ class SSLKIASR(nn.Module):
     def inference(self, x):
         outputs = self._forward(x)
 
-        return outputs
+        return F.log_softmax(outputs, dim=-1)

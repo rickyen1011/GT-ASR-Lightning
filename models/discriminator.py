@@ -24,12 +24,12 @@ class Discriminator(nn.Module):
             nn.Dropout(),
             nn.Linear(in_features=1024, out_features=self.num_domain)
         )
-        weights = torch.FloatTensor(self.class_weights).cuda()
-        self.criterion = FocalLoss(gamma=0.7, alpha=weights)
+        # weights = torch.FloatTensor(self.class_weights).cuda()
+        # self.criterion = FocalLoss(gamma=0.7, alpha=weights)
 
     def _compute_loss(self, outputs_d, targets_d):
-        # xe_loss = F.cross_entropy(outputs_d, targets_d)
-        xe_loss = self.criterion(outputs_d, targets_d)
+        xe_loss = F.cross_entropy(outputs_d, targets_d)
+        # xe_loss = self.criterion(outputs_d, targets_d)
         return xe_loss, {'CrossEntropyLoss': xe_loss.detach()}
     
     def _forward(self, x):

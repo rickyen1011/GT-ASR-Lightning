@@ -84,9 +84,9 @@ if __name__ == '__main__':
                 metadata['filenames'][kw].append(filename)
         
         wordcounts = metadata['wordcounts'].copy()
-        for kw, count in wordcounts.items():
-            lang = metadata['filenames'][kw][0].split('/')[0]
-            if args.num and count < args.num:
+        if args.num and count < args.num:
+            for kw, count in wordcounts.items():
+                lang = metadata['filenames'][kw][0].split('/')[0]
                 del metadata['wordcounts'][kw]
                 del metadata['filenames'][kw]
                 metadata['number_of_samples'][lang] -= count

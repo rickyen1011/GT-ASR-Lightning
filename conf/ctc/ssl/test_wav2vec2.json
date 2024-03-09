@@ -4,10 +4,10 @@
         "main": "Dataset",
         "args": {
             "root_dir": "/mnt/disk2/rickyen/Datasets/mswc/audio",
-            "data_dir": "./data/mswc-tr-MP-top30",
+            "data_dir": "./data/mswc-lt-MP-top30",
             "json_file": "test.json",
             "lexicon_file": "lexicon_MP.txt",
-            "split": "tr"
+            "split": "lt"
         },
         "beam_search_decoder": {
             "lm_file": "id_lm.bin",
@@ -22,8 +22,8 @@
             "module": "datasets.ctc.waveform_dataset",
             "main": "Collate",
             "args": {
-                "data_dir": "./data/mswc-tr-MP-top30",
-                "token_file": "MP.json"
+                "data_dir": "./data/mswc-lt-MP-top30",
+                "token_file": "MP_lp.json"
             }
         }
     }

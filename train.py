@@ -1,3 +1,4 @@
+import sys
 import pathlib
 import argparse
 import json5
@@ -141,14 +142,6 @@ def main():
         args.checkpoint_path,
     )
 
-    train_dataset, val_dataset = (
-        initialize_config(config["train_dataset"]),
-        initialize_config(config["validation_dataset"]),
-    )
-    # lightning_module = initialize_config(
-    #     config["lightning_module"], pass_args=False
-    # )(config)
-
     trainer = get_trainer(
         exp_dir, config["trainer"], args.gpus, args.gradient_clip_val, args.strategy
     )
@@ -161,14 +154,28 @@ def main():
         )(config)
         pretrained_model_config = config["ASR_model"]
         lightning_module.load_pretrained_model(ckpt_path, pretrained_model_config)
+        lightning_module.set_model_lp()
 
     else:
         lightning_module = initialize_config(
             config["lightning_module"], pass_args=False
         )(config)
-
-    train_dataloader = lightning_module.get_train_dataloader(train_dataset)
-    val_dataloader = lightning_module.get_val_dataloader(val_dataset)
+    
+    if "labeled_train_dataset" not in config:
+        train_dataset, val_dataset = (
+            initialize_config(config["train_dataset"]),
+            initialize_config(config["validation_dataset"]),
+        )
+        train_dataloader = lightning_module.get_train_dataloader(train_dataset)
+        val_dataloader = lightning_module.get_val_dataloader(val_dataset)
+    else:
+        labeled_train_dataset, unlabeled_train_dataset, val_dataset = (
+            initialize_config(config["labeled_train_dataset"]),
+            initialize_config(config["unlabeled_train_dataset"]),
+            initialize_config(config["validation_dataset"]),
+        )
+        train_dataloader = lightning_module.get_train_dataloader(labeled_train_dataset, unlabeled_train_dataset)
+        val_dataloader = lightning_module.get_val_dataloader(val_dataset)
 
     trainer.fit(
         lightning_module,

@@ -35,13 +35,6 @@ class DATASRModule(BaseASRModule):
         self.val_acc_outputs = []
         self.val_dacc_outputs = []
 
-        self.dat = True
-        if "dat" in config["trainer"]:
-            self.dat = config["trainer"]["dat"]
-        self.li = False
-        if "li" in config["trainer"]:
-            self.li = config["trainer"]["li"]
-
     def _compute_d_loss(
         self, 
         waveforms, 
@@ -75,11 +68,16 @@ class DATASRModule(BaseASRModule):
 
     def _compute_g_loss(
         self, 
-        waveforms, 
+        waveforms,
+        waveforms_tgt,
         labels,
-        input_lengths, 
+        labels_tgt,
+        input_lengths,
+        input_lengths_tgt, 
         label_lengths,
-        labels_d, 
+        label_lengths_tgt,
+        labels_d,
+        labels_d_tgt,
         step_type
     ):
         """
@@ -100,16 +98,19 @@ class DATASRModule(BaseASRModule):
             waveforms, labels, input_lengths, label_lengths
         )
 
+        (_, _), features_tgt = self.ASR_model(
+            waveforms_tgt, labels_tgt, input_lengths_tgt, label_lengths_tgt
+        )
+
         loss_d, _ = self.discriminator(features, labels_d)
+        loss_d_tgt, _ = self.discriminator(features_tgt, labels_d_tgt)
         p = self.get_p()
         lambda_p = self.get_lambda_p(p)
         self.log("p", p, on_step=True, sync_dist=True)
         self.log("lambda_p", lambda_p, on_step=True, sync_dist=True)
-        if self.dat:
-            loss_g = loss_asr - lambda_p * loss_d       
-            log_statistics['DiscriminatorLoss'] = loss_d.detach()
-        else:
-            loss_g = loss_asr
+        loss_g = loss_asr - lambda_p * (loss_d + loss_d_tgt)
+        
+        log_statistics['DiscriminatorLoss'] = (loss_d+loss_d_tgt).detach()
         self._log_statistics(loss_g, log_statistics, step_type)
         return loss_g
 
@@ -137,29 +138,37 @@ class DATASRModule(BaseASRModule):
 
 
     def training_step(self, batch, batch_idx):
-        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
+        labeled_batch = batch["labeled"]
+        unlabeled_batch = batch["unlabeled"]
+        waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = labeled_batch
+        waveforms_tgt, labels_tgt, input_lengths_tgt, label_lengths_tgt, references_tgt, references_word_tgt, labels_d_tgt, langs_tgt = unlabeled_batch
+        # print (labels_d)
+        # print (labels_d_tgt)
         
-        g_opt, d_opt = self.optimizers()
-        if self.dat or self.li:
-            loss_d = self._compute_d_loss(
-                waveforms, labels, input_lengths, label_lengths, labels_d, "train"
-            )
-            d_opt.zero_grad()
-            self.manual_backward(loss_d)
-            d_opt.step()
-        
-        loss_g = self._compute_g_loss(
+        loss_d = self._compute_d_loss(
             waveforms, labels, input_lengths, label_lengths, labels_d, "train"
         )
+        loss_d_tgt = self._compute_d_loss(
+            waveforms_tgt, labels_tgt, input_lengths_tgt, label_lengths_tgt, labels_d_tgt, "train"
+        )
+
+        g_opt, d_opt = self.optimizers()
+        d_opt.zero_grad()
+        self.manual_backward(loss_d+loss_d_tgt)
+        d_opt.step()
+        
+        loss_g = self._compute_g_loss(
+            waveforms, waveforms_tgt, labels, labels_tgt, input_lengths, input_lengths_tgt, 
+            label_lengths, label_lengths_tgt, labels_d, labels_d_tgt, "train"
+        )
         g_opt.zero_grad()
-        if self.dat or self.li:
-            d_opt.zero_grad()
+        d_opt.zero_grad()
         self.manual_backward(loss_g)
         g_opt.step()
 
-
     def validation_step(self, batch, batch_idx):
         waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
+        
         outputs, features = self.ASR_model.inference(waveforms)
         outputs_d = self.discriminator.inference(features)
         outputs_d = torch.argmax(outputs_d, dim=-1)
@@ -175,8 +184,7 @@ class DATASRModule(BaseASRModule):
         for i in range(len(pred_words)):
             self.val_ter_outputs.append([pred_seqs[i], references[i]])
             self.val_acc_outputs.append([pred_words[i], references_word[i]])
-            if self.dat or self.li:
-                self.val_dacc_outputs.append([outputs_d.detach().cpu()[i], labels_d.cpu()[i]])
+            self.val_dacc_outputs.append([outputs_d.detach().cpu()[i], labels_d.cpu()[i]])
 
 
     def on_validation_epoch_end(self):
@@ -185,16 +193,13 @@ class DATASRModule(BaseASRModule):
             [output[0] for output in self.val_ter_outputs], [output[1] for output in self.val_ter_outputs]
         all_acc_preds, all_acc_labels = \
             [output[0] for output in self.val_acc_outputs], [output[1] for output in self.val_acc_outputs]
-        if self.dat or self.li:
-            all_dacc_preds, all_dacc_labels = \
-                [output[0] for output in self.val_dacc_outputs], [output[1] for output in self.val_dacc_outputs]
+        all_dacc_preds, all_dacc_labels = \
+            [output[0] for output in self.val_dacc_outputs], [output[1] for output in self.val_dacc_outputs]
         
         ter = self.ter(all_ter_preds, all_ter_labels)
         acc = self.compute_acc(all_acc_preds, all_acc_labels)
         sch_g.step(acc)
-        if self.dat:
-            sch_d.step()
-
+        sch_d.step()
         self.log(
             "val/ter", 
             ter, 
@@ -209,8 +214,7 @@ class DATASRModule(BaseASRModule):
             batch_size=self.config["val_dataloader"]["batch_size"],
             sync_dist=True
         )
-        if self.dat or self.li:
-            self.log("val/dacc", self.compute_acc(all_dacc_preds, all_dacc_labels), sync_dist=True)
+        self.log("val/dacc", self.compute_acc(all_dacc_preds, all_dacc_labels), sync_dist=True)
         self.val_ter_outputs.clear()
         self.val_acc_outputs.clear()
         self.val_dacc_outputs.clear()
@@ -264,7 +268,6 @@ class DATASRModule(BaseASRModule):
             dataloader: test dataloader
         """
         test_dacc_outputs = []
-        j = 0
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Inference"):
                 waveforms, labels, input_lengths, label_lengths, references, references_word, labels_d, langs = batch
@@ -272,13 +275,10 @@ class DATASRModule(BaseASRModule):
                 outputs, features = self.ASR_model.inference(waveforms)
                 outputs_d = self.discriminator.inference(features)
                 outputs_d = torch.argmax(outputs_d, dim=-1)
+                print (outputs_d)
         
                 for i in range(len(outputs_d)):
                     test_dacc_outputs.append([outputs_d.detach().cpu()[i], labels_d.cpu()[i]])
-
-                # j += 1
-                # if j == 100:
-                #     break
                 
         return test_dacc_outputs
 
@@ -306,8 +306,7 @@ class DATASRModule(BaseASRModule):
             threshold=self.config["lr_scheduler_g"]["threshold"], 
             factor=self.config["lr_scheduler_g"]["factor"], 
             patience=self.config["lr_scheduler_g"]["patience"],
-            min_lr=self.config["lr_scheduler_g"]["min_lr"],
-            verbose=self.config["lr_scheduler_g"]["verbose"]
+            min_lr=self.config["lr_scheduler_g"]["min_lr"]
         )
         lr_scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
             optimizer_d, gamma=self.config["lr_scheduler_d"]["decay_factor"]
@@ -325,20 +324,33 @@ class DATASRModule(BaseASRModule):
         )
 
 
-    def get_train_dataloader(self, trainset):
-        self.len_dataloader = len(trainset) // self.config["train_dataloader"]["batch_size"]
-        collate_fn = initialize_config(
-            self.config["train_dataloader"]["collate_fn"],
+    def get_train_dataloader(self, labeled_trainset, unlabeled_trainset):
+        self.len_dataloader = len(labeled_trainset) // self.config["train_dataloader"]["batch_size"]
+        labeled_collate_fn = initialize_config(
+            self.config["train_dataloader"]["labeled_collate_fn"],
         )
-        return DataLoader(
-            dataset=trainset,
+        unlabeled_collate_fn = initialize_config(
+            self.config["train_dataloader"]["unlabeled_collate_fn"],
+        )
+        labeled_dataloader = DataLoader(
+            dataset=labeled_trainset,
             batch_size=self.config["train_dataloader"]["batch_size"],
             num_workers=self.config["train_dataloader"]["num_workers"],
             shuffle=self.config["train_dataloader"]["shuffle"],
-            collate_fn=collate_fn.collate_fn,
+            collate_fn=labeled_collate_fn.collate_fn,
             pin_memory=self.config["train_dataloader"]["pin_memory"],
         )
 
+        unlabeled_dataloader = DataLoader(
+            dataset=unlabeled_trainset,
+            batch_size=self.config["train_dataloader"]["batch_size"],
+            num_workers=self.config["train_dataloader"]["num_workers"],
+            shuffle=self.config["train_dataloader"]["shuffle"],
+            collate_fn=unlabeled_collate_fn.collate_fn,
+            pin_memory=self.config["train_dataloader"]["pin_memory"],
+        )
+
+        return {"labeled": labeled_dataloader, "unlabeled": unlabeled_dataloader}
 
     def get_val_dataloader(self, valset):
         collate_fn = initialize_config(

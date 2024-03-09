@@ -6,7 +6,8 @@ class TextTransform:
     def __init__(self, token_file):
         with open(token_file, 'r') as f:
             self.unit_map = json.load(f)
-        self.unit_map["<blank>"] = len(self.unit_map)
+        if "<blank>" not in self.unit_map:
+            self.unit_map["<blank>"] = len(self.unit_map)
         self.index_map = {} 
         for unit, i in self.unit_map.items():
             self.index_map[i] = unit

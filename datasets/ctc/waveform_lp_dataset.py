@@ -1,15 +1,16 @@
 import os
 import json
+import random
 
 import torch
 import torch.nn as nn
 import torchaudio
 from torch.utils.data import Dataset
 
-from utils.text_process import LPTextTransform
+from utils.text_process import TextTransform
 
 class Dataset(Dataset):
-    def __init__(self, root_dir, data_dir, json_file, lexicon_file, split='train'):
+    def __init__(self, root_dir, data_dir, json_file, lexicon_file, split=None, portion=None):
         self.root_dir = root_dir
         self.split = split
         data_file = os.path.join(data_dir, json_file)
@@ -23,20 +24,30 @@ class Dataset(Dataset):
                 word, seq = line[0], ' '.join(line[1:])
                 self.lexicon[word] = seq
         
+        self.portion = portion
         self.get_metadata(data_file)
     
     def get_metadata(self, json_file):
         with open(json_file, 'r') as f:
             all_data = json.load(f)
+            total_sample = list(all_data["number_of_samples"].values())[0]
         for word, filenames in all_data['filenames'].items():
             seq = self.lexicon[word]
             for filename in filenames:
                 lang = filename.split('/')[0]
-                if self.split:
-                    path = f'{self.root_dir}/{self.split}/{word}/{filename}'
+                if self.split and lang != self.split:
+                    continue
                 else:
                     path = f'{self.root_dir}/{filename}'
-                self.metadata.append((path, lang, word, seq))
+                if self.portion:
+                    if len(self.metadata) < self.portion and random.random() < self.portion / total_sample:
+                        self.metadata.append((path, lang, word, seq))
+                    else:
+                        continue
+                else:
+                    self.metadata.append((path, lang, word, seq))
+        
+        print (len(self.metadata))
 
     def __len__(self):
         return len(self.metadata)
@@ -50,10 +61,9 @@ class Dataset(Dataset):
         return waveform, lang, word, transcript
 
 class Collate:
-    def __init__(self, source_data_dir, target_data_dir, token_file, sample_rate=16000, subsample_factor=0.02):
-        source_token_file = os.path.join(source_data_dir, token_file)
-        target_token_file = os.path.join(target_data_dir, token_file)
-        self.text_transform = LPTextTransform(token_file=source_token_file, target_token=target_token_file)
+    def __init__(self, data_dir, token_file, sample_rate=16000, subsample_factor=0.02):
+        token_file = os.path.join(data_dir, token_file)
+        self.text_transform = TextTransform(token_file=token_file)
 
         self.sample_rate = sample_rate
         self.subsample_factor = subsample_factor
